@@ -69,7 +69,7 @@ publishing {
         register<MavenPublication>("release") {
             groupId = "com.github.islamzadaLibs"
             artifactId = "http-logger-sdk-android"
-            version = "1.0.2"
+            version = "1.1.0"
 
             afterEvaluate {
                 from(components["release"])
