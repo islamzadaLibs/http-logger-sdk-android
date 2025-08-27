@@ -239,7 +239,7 @@ MIT License. See LICENSE file for details.
 
 ## 👨‍💻 Author
 Vusal Islamzada  
-Email: vusalislamzada.dev@gmail.com  
-GitHub: https://github.com/islamzadavusal
-LinkedIn: www.linkedin.com/in/islamzada
+- Email: vusalislamzada.dev@gmail.com  
+- GitHub: https://github.com/islamzadavusal
+- LinkedIn: www.linkedin.com/in/islamzada
 
