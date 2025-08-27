@@ -9,104 +9,96 @@ import com.islamzada.http_logger_sdk_android.network.HttpLoggerInterceptor
 import okhttp3.OkHttpClient
 
 /**
- * Main SDK class for HTTP Logger Android SDK
+ * Enhanced HTTP Logger SDK for Android applications
  *
- * This is the primary entry point for integrating HTTP logging into Android applications.
- * The SDK automatically captures HTTP requests/responses and stores them in Firebase Firestore
- * for monitoring, debugging, and analytics purposes.
- *
- * ## Key Features:
- * - Automatic HTTP request/response logging
- * - Firebase Firestore integration for cloud storage
- * - Configurable logging levels and detail
- * - Real-time log observation capabilities
- * - Thread-safe operations
- * - Multiple API key support
+ * This SDK provides comprehensive HTTP request/response logging with:
+ * - Complete application context (package, version, build type)
+ * - Network information (type, quality, operator)
+ * - Performance metrics (timing breakdown, sizes)
+ * - Session tracking and error categorization
+ * - Device and environment context
+ * - Security-aware data handling
  *
  * ## Basic Usage:
  * ```kotlin
- * // 1. Configure Firebase
  * val firebaseConfig = FirebaseConfig.create(
  *     projectId = "your-project-id",
  *     applicationId = "your-app-id",
  *     apiKey = "your-api-key"
  * )
  *
- * // 2. Create interceptor
  * val interceptor = HttpLoggerSDK.createInterceptor(
  *     context = this,
  *     firebaseConfig = firebaseConfig,
- *     apiKey = "unique-api-key-for-this-client"
+ *     apiKey = "unique-api-key"
  * )
  *
- * // 3. Add to OkHttp client
  * val client = OkHttpClient.Builder()
  *     .addInterceptor(interceptor)
  *     .build()
  * ```
  *
- * ## Or use enhanced client builder:
+ * ## Environment-Specific Configuration:
  * ```kotlin
- * val client = HttpLoggerSDK.enhanceOkHttpClient(
+ * // Development with full logging
+ * val devInterceptor = HttpLoggerSDK.createInterceptor(
  *     context = this,
- *     firebaseConfig = firebaseConfig,
- *     apiKey = "unique-api-key"
+ *     firebaseConfig = config,
+ *     apiKey = "dev-api",
+ *     config = LoggerConfig.forDevelopment(),
+ *     environment = "development",
+ *     userId = "dev-user-123"
+ * )
+ *
+ * // Production with minimal logging
+ * val prodInterceptor = HttpLoggerSDK.createInterceptor(
+ *     context = this,
+ *     firebaseConfig = config,
+ *     apiKey = "prod-api",
+ *     config = LoggerConfig.forProduction(),
+ *     environment = "production"
  * )
  * ```
- *
- * @since 1.0.0
  */
 object HttpLoggerSDK {
 
     private const val TAG = "HttpLoggerSDK"
-    private const val VERSION = "1.0.0"
+    private const val VERSION = "1.1.0"
 
     /**
      * Gets the current SDK version
-     * @return SDK version string
      */
     @JvmStatic
     fun getVersion(): String = VERSION
 
     /**
-     * Creates an HTTP logger interceptor with the specified configuration
+     * Creates an enhanced HTTP logger interceptor with comprehensive logging
      *
-     * This interceptor will capture HTTP requests/responses and store them
-     * in Firebase Firestore under the provided API key.
+     * This interceptor captures detailed information including:
+     * - Application context (package name, version, build type)
+     * - Network information (type, quality, operator)
+     * - Performance metrics (timing breakdown, request/response sizes)
+     * - Session tracking and error categorization
+     * - Device information and environment context
      *
-     * @param context Android application context (required for Firebase initialization)
+     * @param context Android application context
      * @param firebaseConfig Firebase project configuration
-     * @param apiKey Unique API key to organize logs under (acts as namespace)
-     * @param config Logger configuration controlling what data to capture
-     * @return Configured HttpLoggerInterceptor ready to use with OkHttp
-     *
-     * @throws IllegalArgumentException if configuration is invalid
-     * @throws IllegalStateException if Firebase initialization fails
-     *
-     * @see FirebaseConfig.create
-     * @see LoggerConfig.forDevelopment
-     * @see LoggerConfig.forProduction
-     *
-     * Example:
-     * ```kotlin
-     * val interceptor = HttpLoggerSDK.createInterceptor(
-     *     context = applicationContext,
-     *     firebaseConfig = FirebaseConfig.create(
-     *         projectId = "my-project-123",
-     *         applicationId = "1:123:android:abc",
-     *         apiKey = "AIza..."
-     *     ),
-     *     apiKey = "mobile-app-v2",
-     *     config = LoggerConfig.forDevelopment()
-     * )
-     * ```
+     * @param apiKey Unique API key for log organization
+     * @param config Logger configuration controlling detail level
+     * @param environment Environment tag (development, staging, production)
+     * @param userId Optional user identifier for debugging
+     * @param tags Additional custom tags for log categorization
+     * @return Configured HttpLoggerInterceptor
      */
     @JvmStatic
     fun createInterceptor(
         context: Context,
         firebaseConfig: FirebaseConfig,
         apiKey: String,
-        config: LoggerConfig = LoggerConfig()
+        config: LoggerConfig = LoggerConfig(),
+        environment: String = "production",
+        userId: String? = null,
+        tags: List<String> = emptyList()
     ): HttpLoggerInterceptor {
 
         require(firebaseConfig.isValid()) {
@@ -114,6 +106,9 @@ object HttpLoggerSDK {
         }
         require(apiKey.isNotBlank()) {
             "API Key cannot be blank. Provide a unique identifier for organizing logs."
+        }
+        require(environment.isNotBlank()) {
+            "Environment cannot be blank. Use: development, staging, production, etc."
         }
 
         val validationIssues = config.validate()
@@ -124,15 +119,25 @@ object HttpLoggerSDK {
         try {
             FirebaseManager.initializeFirebase(context, firebaseConfig)
 
-            Log.i(TAG, "HTTP Logger SDK initialized successfully")
+            Log.i(TAG, "Enhanced HTTP Logger SDK initialized successfully")
             Log.d(TAG, "Firebase Project: ${firebaseConfig.projectId}")
             Log.d(TAG, "API Key: ${apiKey.take(8)}...")
+            Log.d(TAG, "Environment: $environment")
             Log.d(TAG, "Log Level: ${config.logLevel}")
+            Log.d(TAG, "User ID: ${userId?.take(8) ?: "None"}...")
 
-            return HttpLoggerInterceptor(firebaseConfig, apiKey, config)
+            return HttpLoggerInterceptor(
+                context = context,
+                firebaseConfig = firebaseConfig,
+                apiKey = apiKey,
+                config = config,
+                environment = environment,
+                sdkVersion = VERSION,
+                userId = userId
+            )
 
         } catch (exception: Exception) {
-            Log.e(TAG, "Failed to initialize HTTP Logger SDK", exception)
+            Log.e(TAG, "Failed to initialize Enhanced HTTP Logger SDK", exception)
             throw IllegalStateException(
                 "Failed to initialize Firebase for HTTP logging: ${exception.message}",
                 exception
@@ -141,44 +146,16 @@ object HttpLoggerSDK {
     }
 
     /**
-     * Creates an enhanced OkHttp client with HTTP logging interceptor
-     *
-     * This is a convenience method that creates a new OkHttp client with
-     * the HTTP logger interceptor already configured. You can provide your
-     * own OkHttpClient.Builder to customize other aspects of the client.
+     * Creates an enhanced OkHttp client with comprehensive logging
      *
      * @param context Android application context
      * @param firebaseConfig Firebase project configuration
      * @param apiKey Unique API key for log organization
-     * @param clientBuilder Optional OkHttpClient.Builder to customize (creates new if null)
+     * @param clientBuilder Optional custom OkHttp client builder
      * @param config Logger configuration
-     * @return Configured OkHttpClient with logging interceptor
-     *
-     * @throws IllegalArgumentException if configuration is invalid
-     * @throws IllegalStateException if Firebase initialization fails
-     *
-     * Example:
-     * ```kotlin
-     * // Simple usage
-     * val client = HttpLoggerSDK.enhanceOkHttpClient(
-     *     context = this,
-     *     firebaseConfig = config,
-     *     apiKey = "api-v1"
-     * )
-     *
-     * // With custom client builder
-     * val customBuilder = OkHttpClient.Builder()
-     *     .connectTimeout(30, TimeUnit.SECONDS)
-     *     .readTimeout(60, TimeUnit.SECONDS)
-     *
-     * val client = HttpLoggerSDK.enhanceOkHttpClient(
-     *     context = this,
-     *     firebaseConfig = config,
-     *     apiKey = "api-v1",
-     *     clientBuilder = customBuilder,
-     *     config = LoggerConfig.forTesting()
-     * )
-     * ```
+     * @param environment Environment tag
+     * @param userId Optional user identifier
+     * @return Configured OkHttpClient with enhanced logging
      */
     @JvmStatic
     fun enhanceOkHttpClient(
@@ -186,78 +163,228 @@ object HttpLoggerSDK {
         firebaseConfig: FirebaseConfig,
         apiKey: String,
         clientBuilder: OkHttpClient.Builder = OkHttpClient.Builder(),
-        config: LoggerConfig = LoggerConfig()
+        config: LoggerConfig = LoggerConfig(),
+        environment: String = "production",
+        userId: String? = null
     ): OkHttpClient {
-        val interceptor = createInterceptor(context, firebaseConfig, apiKey, config)
+        val interceptor = createInterceptor(
+            context = context,
+            firebaseConfig = firebaseConfig,
+            apiKey = apiKey,
+            config = config,
+            environment = environment,
+            userId = userId
+        )
 
         return clientBuilder
             .addInterceptor(interceptor)
             .build()
             .also {
-                Log.i(TAG, "Enhanced OkHttp client created with logging interceptor")
+                Log.i(TAG, "Enhanced OkHttp client created with comprehensive logging")
             }
     }
 
     /**
-     * Creates multiple interceptors for different API keys
-     *
-     * Useful when you need to log requests to different services or
-     * environments under separate API keys for better organization.
+     * Creates environment-specific interceptors with appropriate configurations
      *
      * @param context Android application context
      * @param firebaseConfig Firebase project configuration
-     * @param apiKeys Map of service names to API keys
-     * @param config Logger configuration (applied to all interceptors)
-     * @return Map of service names to configured interceptors
-     *
-     * Example:
-     * ```kotlin
-     * val interceptors = HttpLoggerSDK.createMultipleInterceptors(
-     *     context = this,
-     *     firebaseConfig = config,
-     *     apiKeys = mapOf(
-     *         "auth-service" to "auth-api-key",
-     *         "data-service" to "data-api-key",
-     *         "analytics" to "analytics-api-key"
-     *     )
-     * )
-     *
-     * val authClient = OkHttpClient.Builder()
-     *     .addInterceptor(interceptors["auth-service"]!!)
-     *     .build()
-     * ```
+     * @param baseApiKey Base API key (environment will be appended)
+     * @param userId Optional user identifier
+     * @return Map of environment names to configured interceptors
      */
     @JvmStatic
-    fun createMultipleInterceptors(
+    fun createEnvironmentInterceptors(
         context: Context,
         firebaseConfig: FirebaseConfig,
-        apiKeys: Map<String, String>,
-        config: LoggerConfig = LoggerConfig()
+        baseApiKey: String,
+        userId: String? = null
     ): Map<String, HttpLoggerInterceptor> {
-        require(apiKeys.isNotEmpty()) { "At least one API key must be provided" }
 
-        return apiKeys.mapValues { (serviceName, apiKey) ->
-            Log.d(TAG, "Creating interceptor for service: $serviceName")
-            createInterceptor(context, firebaseConfig, apiKey, config)
+        val environments = mapOf(
+            "development" to LoggerConfig.forDevelopment(),
+            "staging" to LoggerConfig.forTesting(),
+            "production" to LoggerConfig.forProduction()
+        )
+
+        return environments.mapValues { (environment, config) ->
+            val apiKey = "${baseApiKey}_${environment}"
+
+            Log.d(TAG, "Creating interceptor for environment: $environment")
+            createInterceptor(
+                context = context,
+                firebaseConfig = firebaseConfig,
+                apiKey = apiKey,
+                config = config,
+                environment = environment,
+                userId = userId
+            )
         }.also {
-            Log.i(TAG, "Created ${it.size} HTTP logger interceptors")
+            Log.i(TAG, "Created ${it.size} environment-specific interceptors")
         }
     }
 
     /**
-     * Clears Firebase instance and cached resources for a specific configuration
+     * Creates multiple service-specific interceptors with different configurations
      *
-     * Call this method when you no longer need HTTP logging for a specific
-     * Firebase configuration to free up resources and prevent memory leaks.
-     * This will stop all logging activities for the specified configuration.
+     * @param context Android application context
+     * @param firebaseConfig Firebase project configuration
+     * @param serviceConfigs Map of service names to their specific configurations
+     * @param environment Current environment
+     * @param userId Optional user identifier
+     * @return Map of service names to configured interceptors
+     */
+    @JvmStatic
+    fun createServiceInterceptors(
+        context: Context,
+        firebaseConfig: FirebaseConfig,
+        serviceConfigs: Map<String, ServiceConfig>,
+        environment: String = "production",
+        userId: String? = null
+    ): Map<String, HttpLoggerInterceptor> {
+
+        require(serviceConfigs.isNotEmpty()) { "At least one service configuration must be provided" }
+
+        return serviceConfigs.mapValues { (serviceName, serviceConfig) ->
+            Log.d(TAG, "Creating interceptor for service: $serviceName")
+            createInterceptor(
+                context = context,
+                firebaseConfig = firebaseConfig,
+                apiKey = serviceConfig.apiKey,
+                config = serviceConfig.loggerConfig,
+                environment = environment,
+                userId = userId
+            )
+        }.also {
+            Log.i(TAG, "Created ${it.size} service-specific interceptors")
+        }
+    }
+
+    /**
+     * Gets comprehensive diagnostic information about the SDK
      *
-     * @param firebaseConfig Firebase configuration to clean up
+     * @param context Android application context
+     * @return Map with detailed diagnostic information
+     */
+    @JvmStatic
+    fun getDetailedDiagnosticInfo(context: Context): Map<String, Any> {
+        val diagnostics = mutableMapOf<String, Any>()
+
+        try {
+            // SDK Information
+            diagnostics["sdkVersion"] = VERSION
+            diagnostics["activeFirebaseInstances"] = FirebaseManager.getActiveInstanceCount()
+            diagnostics["timestamp"] = System.currentTimeMillis()
+
+            // Application Information
+            val packageManager = context.packageManager
+            val packageInfo = packageManager.getPackageInfo(context.packageName, 0)
+            val applicationInfo = packageManager.getApplicationInfo(context.packageName, 0)
+
+            diagnostics["applicationInfo"] = mapOf(
+                "packageName" to context.packageName,
+                "appName" to packageManager.getApplicationLabel(applicationInfo).toString(),
+                "versionName" to (packageInfo.versionName ?: "Unknown"),
+                "versionCode" to if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    packageInfo.longVersionCode.toInt()
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageInfo.versionCode
+                },
+                "buildType" to if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) "debug" else "release"
+            )
+
+            // Device Information
+            diagnostics["deviceInfo"] = mapOf(
+                "brand" to android.os.Build.BRAND,
+                "model" to android.os.Build.MODEL,
+                "androidVersion" to android.os.Build.VERSION.RELEASE,
+                "apiLevel" to android.os.Build.VERSION.SDK_INT
+            )
+
+            // Memory Information
+            val runtime = Runtime.getRuntime()
+            diagnostics["memoryInfo"] = mapOf(
+                "totalMemory" to runtime.totalMemory(),
+                "freeMemory" to runtime.freeMemory(),
+                "maxMemory" to runtime.maxMemory(),
+                "usedMemory" to (runtime.totalMemory() - runtime.freeMemory())
+            )
+
+        } catch (exception: Exception) {
+            diagnostics["error"] = "Failed to collect diagnostics: ${exception.message}"
+            Log.e(TAG, "Error collecting diagnostics", exception)
+        }
+
+        return diagnostics
+    }
+
+    /**
+     * Validates multiple configurations and returns consolidated report
      *
-     * Example:
-     * ```kotlin
-     * // When switching environments or cleaning up
-     * HttpLoggerSDK.clearFirebaseInstance(oldFirebaseConfig)
-     * ```
+     * @param firebaseConfig Firebase configuration to validate
+     * @param loggerConfigs Map of service names to logger configurations
+     * @return Validation report with issues and recommendations
+     */
+    @JvmStatic
+    fun validateConfigurations(
+        firebaseConfig: FirebaseConfig,
+        loggerConfigs: Map<String, LoggerConfig>
+    ): ValidationReport {
+        val issues = mutableListOf<String>()
+        val warnings = mutableListOf<String>()
+        val recommendations = mutableListOf<String>()
+
+        // Validate Firebase config
+        if (!firebaseConfig.isValid()) {
+            issues.add("Invalid Firebase configuration")
+        }
+
+        // Validate logger configurations
+        loggerConfigs.forEach { (serviceName, config) ->
+            val configIssues = config.validate()
+            if (configIssues.isNotEmpty()) {
+                issues.addAll(configIssues.map { "$serviceName: $it" })
+            }
+
+            // Check production safety
+            if (!config.isProductionSafe()) {
+                warnings.add("$serviceName configuration may not be safe for production")
+                recommendations.add("Consider using LoggerConfig.forProduction() for $serviceName in production")
+            }
+
+            // Memory usage warnings
+            val estimatedMemory = config.estimatedMemoryPerLog()
+            if (estimatedMemory > 10 * 1024 * 1024) { // 10MB
+                warnings.add("$serviceName estimated memory usage per log is high: ${estimatedMemory / 1024 / 1024}MB")
+                recommendations.add("Consider reducing maxResponseBodySize for $serviceName")
+            }
+        }
+
+        return ValidationReport(issues, warnings, recommendations)
+    }
+
+    /**
+     * Resets all sessions across all context providers
+     * Useful when user logs out or switches accounts
+     *
+     * @param context Android application context
+     */
+    @JvmStatic
+    fun resetAllSessions(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences("http_logger_sdk", Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
+            Log.i(TAG, "All sessions reset successfully")
+        } catch (exception: Exception) {
+            Log.e(TAG, "Error resetting sessions", exception)
+        }
+    }
+
+    // === RESOURCE MANAGEMENT ===
+
+    /**
+     * Clears Firebase instance and cached resources for specific configuration
      */
     @JvmStatic
     fun clearFirebaseInstance(firebaseConfig: FirebaseConfig) {
@@ -271,83 +398,58 @@ object HttpLoggerSDK {
 
     /**
      * Clears all Firebase instances and cached resources
-     *
-     * Use this method for complete cleanup, typically during app shutdown
-     * or when resetting the entire SDK state. This will stop all logging
-     * activities across all configurations.
-     *
-     * Example:
-     * ```kotlin
-     * // In Application.onTerminate() or similar
-     * HttpLoggerSDK.clearAllInstances()
-     * ```
      */
     @JvmStatic
     fun clearAllInstances() {
         try {
             FirebaseManager.clearAllInstances()
-            Log.i(TAG, "Cleared all Firebase instances")
+            Log.i(TAG, "Cleared all Firebase instances and resources")
         } catch (exception: Exception) {
             Log.e(TAG, "Error clearing all Firebase instances", exception)
         }
     }
 
-    /**
-     * Gets information about currently active logging instances
-     *
-     * @return Map with diagnostic information about active instances
-     *
-     * Example:
-     * ```kotlin
-     * val info = HttpLoggerSDK.getDiagnosticInfo()
-     * Log.d("Diagnostics", "Active instances: ${info["activeInstances"]}")
-     * Log.d("Diagnostics", "SDK version: ${info["version"]}")
-     * ```
-     */
-    @JvmStatic
-    fun getDiagnosticInfo(): Map<String, Any> {
-        return mapOf(
-            "version" to VERSION,
-            "activeInstances" to FirebaseManager.getActiveInstanceCount(),
-            "timestamp" to System.currentTimeMillis()
-        )
-    }
+    // === DATA CLASSES ===
 
     /**
-     * Validates a Firebase configuration without initializing
-     *
-     * @param firebaseConfig Configuration to validate
-     * @return List of validation issues (empty if valid)
-     *
-     * Example:
-     * ```kotlin
-     * val config = FirebaseConfig.create(...)
-     * val issues = HttpLoggerSDK.validateConfiguration(config)
-     * if (issues.isNotEmpty()) {
-     *     Log.w("Config", "Issues found: ${issues.joinToString()}")
-     * }
-     * ```
+     * Configuration for a specific service
      */
-    @JvmStatic
-    fun validateConfiguration(firebaseConfig: FirebaseConfig): List<String> {
-        val issues = mutableListOf<String>()
+    data class ServiceConfig(
+        val apiKey: String,
+        val loggerConfig: LoggerConfig,
+        val tags: List<String> = emptyList()
+    )
 
-        if (firebaseConfig.projectId.isBlank()) {
-            issues.add("Project ID cannot be blank")
+    /**
+     * Validation report containing issues, warnings, and recommendations
+     */
+    data class ValidationReport(
+        val issues: List<String>,
+        val warnings: List<String>,
+        val recommendations: List<String>
+    ) {
+        val isValid: Boolean get() = issues.isEmpty()
+        val hasWarnings: Boolean get() = warnings.isNotEmpty()
+
+        fun printReport() {
+            if (issues.isNotEmpty()) {
+                Log.e(TAG, "Validation Issues:")
+                issues.forEach { Log.e(TAG, "  - $it") }
+            }
+
+            if (warnings.isNotEmpty()) {
+                Log.w(TAG, "Validation Warnings:")
+                warnings.forEach { Log.w(TAG, "  - $it") }
+            }
+
+            if (recommendations.isNotEmpty()) {
+                Log.i(TAG, "Recommendations:")
+                recommendations.forEach { Log.i(TAG, "  - $it") }
+            }
+
+            if (isValid && !hasWarnings) {
+                Log.i(TAG, "All configurations are valid!")
+            }
         }
-
-        if (firebaseConfig.applicationId.isBlank()) {
-            issues.add("Application ID cannot be blank")
-        }
-
-        if (firebaseConfig.apiKey.isBlank()) {
-            issues.add("API Key cannot be blank")
-        }
-
-        if (!firebaseConfig.projectId.matches(Regex("^[a-z][a-z0-9-]*[a-z0-9]$"))) {
-            issues.add("Project ID format appears invalid")
-        }
-
-        return issues
     }
 }
