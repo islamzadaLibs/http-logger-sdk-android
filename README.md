@@ -240,6 +240,6 @@ MIT License. See LICENSE file for details.
 ## 👨‍💻 Author
 Vusal Islamzada  
 Email: vusalislamzada.dev@gmail.com  
-GitHub: [islamzadaLibs](https://github.com/islamzadaLibs)  
+GitHub: https://github.com/islamzadavusal
 LinkedIn: www.linkedin.com/in/islamzada
 
