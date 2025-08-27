@@ -1,24 +1,47 @@
-# HTTP Logger SDK for Android 🚀
+# HTTP Logger SDK & Dashboard 🚀
 
-A lightweight and modern **HTTP Logger SDK** for Android that helps you track and debug your **HTTP requests & responses** in real-time.  
-It can also store logs in **Firestore** (with your own Firebase project configuration), and comes with a companion **HTTP Logger Dashboard App** on the Play Store.
-
----
-
-## Features ✨
-
-- 📡 Log **requests & responses** (URL, headers, body, status, duration).  
-- 🔍 Multiple logging levels: `NONE`, `BASIC`, `HEADERS`, `FULL`.  
-- ☁️ Optional **Firestore integration** – store your logs securely.  
-- 📊 Dedicated **Dashboard App** to explore your logs in real-time.  
-- ⚡ Plug & Play – works seamlessly with **OkHttp** or any HTTP client.  
+A complete **HTTP monitoring & debugging solution** for Android, including an **SDK** and a **real-time Dashboard app**.
 
 ---
 
-## Installation ⚙️
+## 📦 Contents
 
-### Step 1. Add JitPack repository
+1. **HTTP Logger SDK for Android**  
+   - An OkHttp interceptor that logs detailed HTTP request/response information.
+   
+2. **HTTP Logger Dashboard App**  
+   - Visualizes, filters, and analyzes logs stored in Firestore.
+
+---
+
+## ✨ Key Features
+
+### 🔍 Detailed Logging
+- Request/Response headers & bodies  
+- Performance metrics (duration, size, DNS, SSL times)  
+- Network information (type, operator, signal strength)  
+- Device & app context  
+- Session tracking & error categorization  
+
+### 🎯 Smart Configuration
+- 4 log levels: `NONE`, `BASIC`, `HEADERS`, `FULL`  
+- Environment-based configuration: development, staging, production  
+- Sensitive data filtering  
+- Memory management: configurable response size limits  
+
+### 📊 Real-Time Dashboard
+- Live log tracking  
+- Advanced filtering (method, status code, search)  
+- Detailed log inspection  
+- Multi-project support  
+
+---
+
+## 🚀 Installation
+
+### 1. Add JitPack Repository
 ```kotlin
+// settings.gradle.kts
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -28,104 +51,195 @@ dependencyResolutionManagement {
 }
 ```
 
-### Step 2. Add the dependency
+### 2. Add Dependencies
 ```kotlin
+// build.gradle.kts (app module)
 dependencies {
-    implementation("com.github.islamzadaLibs:http-logger-sdk-android:Tag")
+    implementation("com.github.islamzadaLibs:http-logger-sdk-android:1.1.0")
 }
 ```
-> Replace **Tag** with the latest release version. 👉 Check the latest version on **JitPack**
 
 ---
 
-## Usage 🚀
+## 📖 Usage
 
-### 1. Initialize the Logger
+### 1. Basic Setup
 ```kotlin
-val logger = HttpLogger.Builder()
-    .setLogLevel(LogLevel.FULL) // NONE, BASIC, HEADERS, FULL
-    .build()
-```
-
-### 2. Attach to OkHttp (Example)
-```kotlin
-val okHttpClient = OkHttpClient.Builder()
-    .addInterceptor(logger)
-    .build()
-```
-✅ Now all your HTTP requests & responses will be logged automatically.
-
----
-
-## Firestore Integration ☁️
-
-You can store logs in your own Firebase Firestore project for later inspection.
-
-**Setup**  
-- Add your Firebase project `google-services.json` to your app.
-
-**Initialize the Firestore logger:**
-```kotlin
-val firestoreLogger = FirestoreLogger(
+// Firebase config
+val firebaseConfig = FirebaseConfig.create(
     projectId = "your-project-id",
-    collectionPath = "http_logs"
+    applicationId = "your-app-id",
+    apiKey = "your-firebase-api-key",
+    storageBucket = "your-storage-bucket" // optional
 )
 
-val logger = HttpLogger.Builder()
-    .setLogLevel(LogLevel.FULL)
-    .enableFirestore(firestoreLogger)
+// Create logger interceptor
+val interceptor = HttpLoggerSDK.createInterceptor(
+    context = this,
+    firebaseConfig = firebaseConfig,
+    apiKey = "unique-api-key", // for grouping logs
+    config = LoggerConfig.forDevelopment(),
+    environment = "development",
+    userId = "user-id" // optional
+)
+
+// Add to OkHttp client
+val client = OkHttpClient.Builder()
+    .addInterceptor(interceptor)
     .build()
 ```
-✅ Now every request/response will also be saved in Firestore.
 
----
-
-## Dashboard App 📊
-
-We provide a dedicated Android Dashboard App (available on Play Store) to visualize your logs:
-
-- 🔎 Search & filter requests.  
-- 📑 Inspect request/response headers & bodies.  
-- 📊 Monitor error rates and response times.  
-
-👉 Download the Dashboard App from the Play Store.
-
----
-
-## Log Levels 🔎
-
-The logger supports multiple levels of detail:
+### 2. Advanced Configuration
 ```kotlin
-enum class LogLevel {
-    NONE,    // No logs
-    BASIC,   // Request & Response lines
-    HEADERS, // Includes headers
-    FULL     // Headers + Body
+val customConfig = LoggerConfig(
+    isEnabled = true,
+    logLevel = LogLevel.FULL,
+    includeHeaders = true,
+    includeRequestBody = true,
+    includeResponseBody = true,
+    maxResponseBodySize = 2 * 1024 * 1024 // 2MB
+)
+
+val serviceConfigs = mapOf(
+    "authService" to HttpLoggerSDK.ServiceConfig(
+        apiKey = "auth_service_key",
+        loggerConfig = LoggerConfig.forDevelopment()
+    ),
+    "apiService" to HttpLoggerSDK.ServiceConfig(
+        apiKey = "api_service_key",
+        loggerConfig = LoggerConfig.forProduction()
+    )
+)
+```
+
+### 3. Environment-Based Config
+```kotlin
+val devInterceptor = HttpLoggerSDK.createInterceptor(
+    config = LoggerConfig.forDevelopment(),
+    environment = "development"
+)
+
+val prodInterceptor = HttpLoggerSDK.createInterceptor(
+    config = LoggerConfig.forProduction(),
+    environment = "production"
+)
+```
+
+---
+
+## 🔧 Firebase Setup
+
+1. Create Firebase project and add Firestore database.
+2. Add Android app and download `google-services.json`.
+3. Firestore rules example:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /http_logs/{apiKey}/logs/{logId} {
+      allow read, write: if true; // tighten for production
+    }
+  }
 }
 ```
 
 ---
 
-## Example Log Output 📝
-```
---> POST https://api.example.com/v1/login
-Headers: Content-Type: application/json
-Body: { "username": "test", "password": "***" }
+## 📊 Dashboard App
+- Real-time log tracking
+- Advanced filtering (method, status code, search)
+- Detailed log details
+- Performance charts
+- Multi-project support
+- Dark mode
 
-<-- 200 OK (350ms)
-Headers: Content-Type: application/json
-Body: { "token": "abc123" }
+[Download from Play Store](https://play.google.com/store/apps/details?id=com.islamzada.httploggerdashboard)
+
+---
+
+## 🛠 Developer Tools
+
+### Configuration Validation
+```kotlin
+val report = HttpLoggerSDK.validateConfigurations(
+    firebaseConfig = firebaseConfig,
+    loggerConfigs = mapOf("service1" to LoggerConfig.forDevelopment())
+)
+report.printReport()
+```
+
+### Diagnostics
+```kotlin
+val diagnostics = HttpLoggerSDK.getDetailedDiagnosticInfo(context)
+println("SDK Version: ${diagnostics["sdkVersion"]}")
 ```
 
 ---
 
-## License 📄
+## ⚙️ Configuration Options
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| isEnabled | Enable/disable logging | true |
+| logLevel | Log detail level | LogLevel.FULL |
+| includeHeaders | Log headers | true |
+| includeRequestBody | Log request body | true |
+| includeResponseBody | Log response body | true |
+| maxResponseBodySize | Max response size | 1MB |
 
-This project is licensed under the **MIT License** – free to use in commercial and personal projects.
+Predefined configs:
+```kotlin
+LoggerConfig.forDevelopment()  // Full logging
+LoggerConfig.forTesting()      // Headers only
+LoggerConfig.forProduction()   // Minimal logging
+LoggerConfig.disabled()        // Disabled
+```
 
 ---
 
-## Author ✍️
+## 🚨 Security
+- Automatic sensitive data filtering: `Authorization`, `Cookie`, `X-API-Key`, `X-Auth-Token`, `Bearer`, `X-Access-Token`
+- Production-safe configuration example:
+```kotlin
+val safeConfig = LoggerConfig(
+    logLevel = LogLevel.BASIC,
+    includeHeaders = false,
+    includeRequestBody = false,
+    includeResponseBody = false
+)
+if (safeConfig.isProductionSafe()) println("Production-safe")
+```
 
-Developed by **Vusal Islamzada**  
-For issues & feature requests, please open an issue.
+---
+
+## 📈 Performance Tips
+- Memory usage estimation per log
+- Response size limits
+- Batch log cleanup
+
+---
+
+## 🔍 Debugging
+- Log levels: `NONE`, `BASIC`, `HEADERS`, `FULL`
+- Common issues: Firebase connection, permissions, network access
+
+---
+
+## 🤝 Contributing
+- Fork the repo
+- Create feature branch
+- Commit your changes
+- Push & open a Pull Request
+
+---
+
+## 📜 License
+MIT License. See LICENSE file for details.
+
+---
+
+## 👨‍💻 Author
+Vusal Islamzada  
+Email: vusalislamzada.dev@gmail.com  
+GitHub: [islamzadaLibs](https://github.com/islamzadaLibs)  
+LinkedIn: www.linkedin.com/in/islamzada
+
