@@ -153,7 +153,7 @@ service cloud.firestore {
 - Multi-project support
 - Dark mode
 
-[Download from Play Store](https://play.google.com/store/apps/details?id=com.islamzada.httploggerdashboard)
+[Download from Play Store](https://play.google.com/store/apps/details?id=com.islamzada.networklogger.android)
 
 ---
 
